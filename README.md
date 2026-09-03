@@ -140,7 +140,7 @@ Open `http://localhost:8501`. You can chat with the assistant in the main window
 ## Working Demonstration Videos
 Below are the screen recordings demonstrating the application in action:
 
-- **RAG Assistant in action:** [recorded-sales-assistent.mp4](./recorded-sales-assistent.mp4)
-- **ML Model & Integration:** [recorded-ML-model-accuracy-92.mp4](./recorded-ML-model-accuracy-92.mp4)
+- **RAG Assistant in action:** ![RAG Assistant Demo](./sales-assistent.gif)
+- **ML Model & Integration:** ![ML Lead Scoring Demo](./ML.gif)
 
 *(Note: Depending on your markdown viewer, you may need to download the .mp4 files from the repository to view them).*
