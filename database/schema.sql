@@ -2,6 +2,11 @@
 
 -- Minimal professional schema for MGC lead tracking.
 -- Keeping the schema simple and directly tied to the analytical requirements.
+-- Outcome & Identity
+    -- Ideally, to prevent duplicates at the database level, we could add a UNIQUE constraint 
+    -- on a natural key (like phone number/email) or on the crm_record_hash.
+    -- E.g.: CONSTRAINT uq_crm_hash UNIQUE (crm_record_hash)
+    -- However, since the dataset contains duplicates for the task, we index it instead.
 
 CREATE TABLE IF NOT EXISTS leads (
     lead_id VARCHAR(50) PRIMARY KEY,
@@ -26,13 +31,7 @@ CREATE TABLE IF NOT EXISTS leads (
     site_visits INT NOT NULL DEFAULT 0,
     agent_experience_years DECIMAL(4, 2),
     token_amount_received_pkr DECIMAL(15, 2) NOT NULL DEFAULT 0,
-    
-    -- Outcome & Identity
-    -- Ideally, to prevent duplicates at the database level, we could add a UNIQUE constraint 
-    -- on a natural key (like phone number/email) or on the crm_record_hash.
-    -- E.g.: CONSTRAINT uq_crm_hash UNIQUE (crm_record_hash)
-    -- However, since the dataset contains duplicates for the task, we index it instead.
-    crm_record_hash VARCHAR(64) NOT NULL,
+    crm_record_hash VARCHAR(64) NOT NULL,  
     converted INT NOT NULL DEFAULT 0
 );
 

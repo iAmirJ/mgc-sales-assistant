@@ -18,12 +18,26 @@ A Streamlit-based chat interface allows salespeople to ask natural-language ques
 - **Rental yield on a 1-bed?** (Abstention): The information isn't in the documents. The system safely refuses to answer ("I don't have that information") instead of inventing a number.
 - **Who is the anchor tenant?** (Explicitly unconfirmed): The documents state no anchor tenant is confirmed; the assistant correctly relays this.
 
+### Real-World Example
+
+**Salesperson Question:**
+
+> What is the base price of a 2-bed Standard unit in Block B?
+
+**AI Assistant Answer:**
+
+> The base price of a 2-bed Standard unit in Block B is PKR 22,425,000 for approximately 1,150 sq ft.
+>
+> **Source:** 02_price_list_payment_plan.md — Base Prices (Block B)
+
+The answer is retrieved directly from the provided MGC documents rather than generated from external knowledge. This allows the salesperson to quickly verify the information and trace the answer back to its source.
+
 ---
 
 ## Part 2: Database (Schema & Queries)
 The schema and queries for the messy CRM dump (`leads.csv`) are located in the `database/` folder.
 
-- **Schema Decisions (`schema.sql`):** We used a single `leads` table. For a transactional CRM, flattening lead details (like source and city) into one table is highly performant and avoids unnecessary JOINs for simple lookups. We used robust typing (`DECIMAL` for currency/time, `BOOLEAN` flags).
+- **Schema Decisions (`schema.sql`):** I used a single `leads` table. For a transactional CRM, flattening lead details (like source and city) into one table is highly performant and avoids unnecessary JOINs for simple lookups. I used robust typing (`DECIMAL` for currency/time, `BOOLEAN` flags).
 - **Duplicate Prevention:** The CRM dump contains 320 duplicates. In a real database, this is prevented by adding a `UNIQUE` constraint on the `crm_record_hash`.
 - **Queries (`queries.sql`):** 
   - **Query 1** calculates the conversion rate by source, specifically filtering for sources with `COUNT(*) >= 200` using a `HAVING` clause, and sorting by the best rate.
@@ -32,25 +46,64 @@ The schema and queries for the messy CRM dump (`leads.csv`) are located in the `
 ---
 
 ## Part 3: ML Lead Scoring (Honest Baseline)
-We built a model to predict the likelihood of a lead converting. The sales team can use this to prioritize high-value leads.
+I built a model to predict the likelihood of a lead converting. The sales team can use this to prioritize high-value leads.
 
 ### Data Cleaning & Leakage Decisions
 The most critical part of this task was preventing **Target Leakage**. 
-- **What we kept:** Lead creation-time features (`source`, `city`, `area`, `property_type`, `budget`, `bedrooms`, `is_overseas`, etc.).
-- **What we dropped (Leakage):** `token_amount_received_pkr`, `calls_made`, `total_call_seconds`, `whatsapp_replies`, `site_visits`. 
-*Why?* If a lead has a "token amount received" or high "call seconds", they are already deep in the sales pipeline or have already converted. Training a model on this post-contact data creates a fake 99% accuracy model that is completely useless for scoring a *brand new* lead. We built an honest model that only uses day-zero information.
+- **What I kept:** Lead creation-time features (`source`, `city`, `area`, `property_type`, `budget`, `bedrooms`, `is_overseas`, etc.).
+- **What I dropped (Leakage):** `token_amount_received_pkr`, `calls_made`, `total_call_seconds`, `whatsapp_replies`, `site_visits`. 
+*Why?* If a lead has a "token amount received" or high "call seconds", they are already deep in the sales pipeline or have already converted. Training a model on this post-contact data creates a fake 99% accuracy model that is completely useless for scoring a *brand new* lead. I built an honest model that only uses day-zero information.
 
 ### Model & Metric
-We trained a **GradientBoostingClassifier** (in `ml/train.py`). Because the dataset is heavily imbalanced (only ~6.9% of leads convert), traditional "Accuracy" is misleading (predicting "No" every time gives 93% accuracy). 
-Instead, we optimized and reported on **PR-AUC (Average Precision)**, which directly measures the model's ability to identify true positives without being overwhelmed by the majority negative class.
+I trained a **GradientBoostingClassifier** (in `ml/train.py`). Because the dataset is heavily imbalanced (only ~6.9% of leads convert), traditional "Accuracy" is misleading (predicting "No" every time gives 93% accuracy). 
+Instead, I optimized and reported on **PR-AUC (Average Precision)**, which directly measures the model's ability to identify true positives without being overwhelmed by the majority negative class.
 
 ### Business Scenario Example
 When a new lead arrives from a "Billboard" in "Gujranwala" looking for a low-budget plot, the model (trained on historical patterns) might assign it a high probability (~71%). The sales team immediately sees **"High likelihood of conversion"** in the app and knows to call them first. Conversely, an over-budget lead from a poorly performing source will score low, allowing the team to deprioritize it.
 
+### Real-World Example
+
+**New Lead:**
+
+A salesperson receives a new lead looking for a residential property. The lead provides information such as:
+
+- Lead Source: Billboard
+- City: Islamabad
+- Property Type: Apartment
+- Bedrooms: 2
+- Budget: PKR 250 Lac
+- Overseas: No
+- Referred by Existing Client: Yes
+- Financing Approved: Yes
+
+The lead is passed to the trained ML pipeline using only information available when the lead is created.
+
+**Example Model Result:**
+
+> Conversion Probability: 71%
+
+> Prediction: High likelihood of conversion
+
+### What does 71% probability mean?
+
+The model estimates that this lead has a relatively high likelihood of converting compared with leads that receive lower scores.
+
+For the sales team, this means the lead can be prioritized for earlier follow-up.
+
+The probability is **not a guarantee that the lead will convert**. It is a model-generated score based on patterns learned from historical CRM data.
+
+For example:
+
+- **Higher probability** → prioritize the lead for faster follow-up.
+- **Medium probability** → follow up normally and monitor engagement.
+- **Lower probability** → lower priority compared with higher-scoring leads.
+
+The score should therefore be used as a **decision-support signal**, not as a guaranteed prediction of customer behavior.
+
 ---
 
 ## Part 4: Web Development
-We tied everything together in a single **Streamlit** application (`app.py`). 
+I tied everything together in a single **Streamlit** application (`app.py`). 
 - **Main View:** The RAG assistant where the salesperson chats.
 - **Sidebar:** The Lead Scoring form. A user can input lead details, and the ML model evaluates it synchronously in real-time without disrupting the chat state.
 
